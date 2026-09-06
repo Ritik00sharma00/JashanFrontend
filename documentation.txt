@@ -1,0 +1,311 @@
+Jashan Tantra API Documentation
+
+Project Overview
+- This project has a gateway app that exposes public API routes.
+- All gateway routes require an API key header: x-api-key
+- Base URL: http://localhost:3000
+- The gateway forwards requests to the user service using RabbitMQ.
+- The user service is the main service for user management and organizer lookup.
+- The event service is separate and handles event registration/cancel/update flows.
+
+Authentication
+- All gateway routes are protected by ApiKeyGuard.
+- Header required:
+  x-api-key: <your-api-key>
+- The key is taken from the .env variable: API_KEY
+
+Important Note
+- Gateway is the only public HTTP entry point.
+- User service and event service are mainly internal microservices, using RabbitMQ messaging.
+- Some internal service methods are not directly exposed as HTTP endpoints, but the gateway handles the public API for them.
+
+1) GET /
+Purpose:
+- Health check / root route for the gateway.
+Parameters:
+- None
+Datatypes:
+- None
+Why this route is used:
+- To check whether the gateway is alive and responding.
+Curl:
+curl -X GET http://localhost:3000/ \
+  -H "x-api-key: your-api-key"
+
+2) GET /service-health
+Purpose:
+- Checks the health of the service microservice behind the gateway.
+Parameters:
+- None
+Datatypes:
+- None
+Why this route is used:
+- To verify that the backend service is running and reachable through RabbitMQ.
+Curl:
+curl -X GET http://localhost:3000/service-health \
+  -H "x-api-key: your-api-key"
+
+3) GET /user-health
+Purpose:
+- Checks whether the user service is active.
+Parameters:
+- None
+Datatypes:
+- None
+Why this route is used:
+- Useful for monitoring and uptime checks for the user module.
+Curl:
+curl -X GET http://localhost:3000/user-health \
+  -H "x-api-key: your-api-key"
+
+4) GET /user-hello
+Purpose:
+- Returns a simple hello message from the user service.
+Parameters:
+- None
+Datatypes:
+- None
+Why this route is used:
+- Quick smoke test for the user service connection and gateway message flow.
+Curl:
+curl -X GET http://localhost:3000/user-hello \
+  -H "x-api-key: your-api-key"
+
+5) GET /user/:id
+Purpose:
+- Fetches public profile details of a user by their ID.
+Parameters:
+- id: string
+Datatypes:
+- id: string (user UUID or database ID)
+Why this route is used:
+- To fetch profile information for a user in public-read scenarios such as organizer details or profile views.
+Curl:
+curl -X GET http://localhost:3000/user/123 \
+  -H "x-api-key: your-api-key"
+
+6) PATCH /user/:id/profile
+Purpose:
+- Updates a user profile.
+Parameters:
+- id: string
+- Body: object with user profile update fields
+Datatypes:
+- id: string
+- Body example:
+  {
+    "name": "string",
+    "password": "string",
+    "category": "string",
+    "age": "string",
+    "state": "string",
+    "city": "string",
+    "about": "string",
+    "phoneNumber": "string",
+    "address": "string",
+    "role": "string"
+  }
+Why this route is used:
+- To edit personal profile information after logging in or managing account details.
+Curl:
+curl -X PATCH http://localhost:3000/user/123/profile \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jashan User",
+    "city": "Chandigarh",
+    "state": "Punjab",
+    "phoneNumber": "9876543210",
+    "about": "Event organizer"
+  }'
+
+7) POST /verify-email
+Purpose:
+- Sends a verification email to a given email address.
+Parameters:
+- Body: { email: string }
+Datatypes:
+- email: string
+Why this route is used:
+- To verify a user email before allowing full account access or sending secure actions.
+Curl:
+curl -X POST http://localhost:3000/verify-email \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com"
+  }'
+
+8) GET /organizers
+Purpose:
+- Finds organizers based on filters.
+Parameters (query params):
+- state: string (optional)
+- city: string (optional)
+- category: string (optional)
+- t: string (optional)
+Datatypes:
+- state: string | undefined
+- city: string | undefined
+- category: string | undefined
+- t: string | undefined
+Why this route is used:
+- To search for organizers by location, field, or token/category.
+- Useful for event generation or user discovery features.
+Curl:
+curl -X GET "http://localhost:3000/organizers?state=Punjab&city=Chandigarh&category=Wedding&t=venue" \
+  -H "x-api-key: your-api-key"
+
+9) POST /create-user
+Purpose:
+- Registers a new user in the system.
+Parameters:
+- Body: object with user details
+Datatypes:
+- email: string
+- password: string
+- name: string
+- category: string
+- age: string
+- role: string
+
+Example request body:
+{
+  "email": "string",
+  "password": "string",
+  "name": "string",
+  "category": "string",
+  "age": "string",
+  "role": "string"
+}
+Why this route is used:
+- To create a new account for a user, organizer, or admin.
+Curl:
+curl -X POST http://localhost:3000/create-user \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "123456",
+    "name": "Jashan User",
+    "category": "Wedding",
+    "age": "28",
+    "role": "organizer"
+  }'
+
+10) POST /login
+Purpose:
+- Logs in an existing user and returns a JWT token.
+Parameters:
+- Body: { email: string, password: string }
+Datatypes:
+- email: string
+- password: string
+Why this route is used:
+- To authenticate a user and get access to protected user actions.
+Curl:
+curl -X POST http://localhost:3000/login \
+  -H "x-api-key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "123456"
+  }'
+
+Event Routes (Service-level routes)
+The event service has these endpoints in the code, though in the current architecture it is operating as a microservice and is usually called internally via RabbitMQ.
+
+11) POST /events/register
+Purpose:
+- Registers a new event request.
+Parameters:
+- Body: CreateEventDto
+Datatypes:
+- requestedBy: string
+- toOrganizer: string
+- eventDate: string (optional)
+- about: string (optional)
+- requirements: string (optional)
+- reviews: array of objects (optional)
+- additionalDetails: string (optional)
+Why this route is used:
+- To create an event request between a user and an organizer.
+Curl:
+curl -X POST http://localhost:3002/events/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestedBy": "user-123",
+    "toOrganizer": "organizer-456",
+    "eventDate": "2026-09-25",
+    "about": "Wedding planning request",
+    "requirements": "Catering and decoration",
+    "additionalDetails": "Need premium package"
+  }'
+
+12) PATCH /events/:id
+Purpose:
+- Updates an existing event.
+Parameters:
+- id: string
+- Body: UpdateEventDto
+Datatypes:
+- eventDate: string (optional)
+- about: string (optional)
+- requirements: string (optional)
+- reviews: array of objects (optional)
+- additionalDetails: string (optional)
+- status: string (optional)
+Why this route is used:
+- To modify event details after creation.
+Curl:
+curl -X PATCH http://localhost:3002/events/123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "confirmed",
+    "about": "Updated event description",
+    "requirements": "Updated venue requirements"
+  }'
+
+13) POST /events/:id/cancel
+Purpose:
+- Cancels an event by ID.
+Parameters:
+- id: string
+Datatypes:
+- id: string
+Why this route is used:
+- To cancel an event request or scheduled event.
+Curl:
+curl -X POST http://localhost:3002/events/123/cancel
+
+14) GET /events/:id
+Purpose:
+- Fetches one event by ID.
+Parameters:
+- id: string
+Datatypes:
+- id: string
+Why this route is used:
+- To read a single event record for details, status, or review checks.
+Curl:
+curl -X GET http://localhost:3002/events/123
+
+Common Response Pattern
+- Most successful responses return JSON objects.
+- Failed requests return validation or unauthorized errors.
+- For protected routes, always send x-api-key.
+
+Suggested Usage Flow
+1. Register a user via POST /create-user
+2. Login via POST /login
+3. Store the returned token or use the app flow
+4. Update profile via PATCH /user/:id/profile
+5. Search organizers via GET /organizers
+6. Send email verification via POST /verify-email
+7. Manage events using the event routes if needed
+
+Notes for Developers
+- Keep API_KEY in .env and never hardcode it in code.
+- Prefer using proper validation on request bodies.
+- For production, use HTTPS and secure token storage.
+- For internal microservice communication, RabbitMQ is already implemented in the gateway.
