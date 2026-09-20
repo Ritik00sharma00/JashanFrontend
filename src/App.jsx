@@ -5,6 +5,7 @@ import { Footer } from './components/layout/Footer'
 import { Navbar } from './components/layout/Navbar'
 import { LandingPage } from './screens/LandingPage'
 import { Dashboard } from './screens/Dashboard'
+import { Profile } from './screens/Profile'
 
 function App() {
   const [authMode, setAuthMode] = useState(null)
@@ -16,6 +17,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage onAuth={setAuthMode} />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </main>
